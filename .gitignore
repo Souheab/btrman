@@ -1,0 +1,21 @@
+# Build artifacts
+/btrman
+/dist/
+/bin/
+*.out
+*.test
+
+# Coverage
+coverage.out
+coverage.html
+
+# Go workspace/local files
+go.work
+
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+
+# Keep the project vendorless
+/vendor/
