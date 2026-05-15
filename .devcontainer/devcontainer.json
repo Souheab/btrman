@@ -1,0 +1,26 @@
+{
+  "name": "betterman devcontainer",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.Go"
+      ],
+      "settings": {
+        "go.toolsManagement.checkForUpdates": "local",
+        "go.useLanguageServer": true
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/nix:1": {
+      "version": "latest",
+      "extraNixConfig": "experimental-features = nix-command flakes\ntrusted-users = root vscode"
+    }
+  },
+  "postCreateCommand": "go version",
+  "remoteUser": "vscode"
+}
