@@ -19,6 +19,12 @@ The project is intentionally vendorless: dependencies are resolved with Go modul
 go build ./cmd/btrman
 ```
 
+Or with Nix:
+
+```sh
+nix build .#
+```
+
 ## Run
 
 ```sh
@@ -30,6 +36,22 @@ go run ./cmd/btrman ls
 go run ./cmd/btrman 'printf(1)'
 go run ./cmd/btrman 1 printf
 ```
+
+Or with Nix:
+
+```sh
+nix run .#
+nix run .# -- ls
+nix run .# -- 'printf(1)'
+```
+
+## Development shell
+
+```sh
+nix develop
+```
+
+The Nix development shell includes Go tooling, Linux manual-page tooling, and clipboard helpers.
 
 ## Test
 

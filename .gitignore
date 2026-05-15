@@ -19,3 +19,6 @@ go.work
 
 # Keep the project vendorless
 /vendor/
+
+# Nix flake artifacts
+result
