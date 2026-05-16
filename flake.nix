@@ -14,14 +14,9 @@
 
         version = if self ? shortRev then self.shortRev else "dev";
         runtimePath = lib.makeBinPath [
-          pkgs.man-db
           pkgs.xclip
           pkgs.xsel
           pkgs.wl-clipboard
-        ];
-        manualPath = lib.makeSearchPathOutput "out" "share/man" [
-          pkgs.man-pages
-          pkgs.man-pages-posix
         ];
 
         btrman = pkgs.buildGoModule {
@@ -42,8 +37,7 @@
 
           postInstall = ''
             wrapProgram $out/bin/btrman \
-              --prefix PATH : ${runtimePath} \
-              --prefix MANPATH : ${manualPath}
+              --prefix PATH : ${runtimePath}
           '';
 
           meta = {
@@ -80,15 +74,11 @@
             pkgs.gopls
             pkgs.gotools
             pkgs.pkg-config
-            pkgs.man-db
-            pkgs.man-pages
-            pkgs.man-pages-posix
             pkgs.xclip
             pkgs.xsel
             pkgs.wl-clipboard
           ];
 
-          MANPATH = manualPath;
           GOROOT = "${pkgs.go}/share/go";
         };
       });
