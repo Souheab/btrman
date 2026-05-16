@@ -1,17 +1,15 @@
 # btrman
 
-`btrman` is a modern Bubble Tea terminal UI for browsing Linux manual pages. It keeps the official `man` database as the source of truth while adding fast command discovery, section navigation, in-page search, related-page links, recents, and snippet copying.
+`btrman` is a terminal UI for browsing Linux manual pages. It keeps the official `man` database as the source of truth while adding fast command discovery, section navigation, in-page search, related-page links, recents, and snippet copying.
 
 ## Status
 
-V1 implementation in progress.
+Currently being developed, as of now it requires the man program (provided by the man-db package) 
 
 ## Requirements
 
 - Go 1.24.5 or newer
-- Linux manual page tooling available on `PATH` (`man` and preferably `apropos`/`man -k`)
-
-The project is intentionally vendorless: dependencies are resolved with Go modules through `go.mod` and `go.sum`; no `vendor/` directory is used.
+- Linux manual page tooling available on `PATH` (`man` binary)
 
 ## Build
 
@@ -29,34 +27,12 @@ nix build .#
 
 ```sh
 # Open fuzzy command search
-go run ./cmd/btrman
+btrman
 
 # Open a specific page
-go run ./cmd/btrman ls
-go run ./cmd/btrman 'printf(1)'
-go run ./cmd/btrman 1 printf
-```
-
-Or with Nix:
-
-```sh
-nix run .#
-nix run .# -- ls
-nix run .# -- 'printf(1)'
-```
-
-## Development shell
-
-```sh
-nix develop
-```
-
-The Nix development shell includes Go tooling, Linux manual-page tooling, and clipboard helpers.
-
-## Test
-
-```sh
-go test ./...
+btrman ls
+btrman 'printf(1)'
+btrman 1 printf
 ```
 
 ## Keybindings
@@ -76,13 +52,3 @@ go test ./...
 | `y` | Copy current line |
 | `Y` | Copy current paragraph/block |
 | `esc` | Close the current overlay/input |
-
-## Architecture
-
-- `cmd/btrman`: CLI entrypoint
-- `internal/app`: Bubble Tea application model and views
-- `internal/manual`: system `man` provider and output cleanup
-- `internal/document`: document parsing, section detection, related links
-- `internal/search`: fuzzy page search and in-page search
-- `internal/history`: XDG recent-history persistence
-- `internal/clipboard`: copy abstraction
