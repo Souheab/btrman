@@ -1,0 +1,31 @@
+package app
+
+import "github.com/charmbracelet/lipgloss"
+
+var (
+	accentColor       = lipgloss.Color("99")
+	accentBrightColor = lipgloss.Color("141")
+	blueColor         = lipgloss.Color("39")
+	textColor         = lipgloss.Color("252")
+	mutedColor        = lipgloss.Color("244")
+	panelColor        = lipgloss.Color("60")
+	titleStyle        = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
+	subtleStyle       = lipgloss.NewStyle().Foreground(mutedColor)
+	statusStyle       = lipgloss.NewStyle().Foreground(textColor)
+	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
+	headingStyle      = lipgloss.NewStyle().Bold(true).Foreground(accentBrightColor)
+	optionStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("114"))
+	exampleStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("151"))
+	matchStyle        = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("229"))
+	currentMatchStyle = lipgloss.NewStyle().Background(lipgloss.Color("57")).Foreground(lipgloss.Color("230")).Bold(true)
+	selectedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("230")).Background(accentColor).Bold(true)
+	promptStyle       = lipgloss.NewStyle().Foreground(accentBrightColor).Bold(true)
+	inputTextStyle    = lipgloss.NewStyle().Foreground(textColor)
+	placeholderStyle  = lipgloss.NewStyle().Foreground(mutedColor)
+	cursorStyle       = lipgloss.NewStyle().Foreground(accentBrightColor)
+	labelStyle        = lipgloss.NewStyle().Foreground(accentBrightColor).Bold(true)
+	linkStyle         = lipgloss.NewStyle().Foreground(blueColor).Bold(true)
+	keyStyle          = lipgloss.NewStyle().Foreground(lipgloss.Color("225")).Background(lipgloss.Color("57")).Bold(true).Padding(0, 1)
+	panelStyle        = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(panelColor)
+	inputBoxStyle     = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(accentColor).Padding(0, 1)
+)
