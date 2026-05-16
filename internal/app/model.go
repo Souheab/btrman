@@ -70,6 +70,10 @@ type Model struct {
 	selectedSection int
 	searchMatches   []search.LineMatch
 	currentMatch    int
+	previewRef      manual.PageRef
+	previewDoc      document.Document
+	previewLoading  bool
+	previewError    string
 	related         []manual.PageRef
 	selectedRel     int
 	recents         []history.Entry
@@ -93,6 +97,12 @@ type historyLoadedMsg struct {
 	err     error
 }
 
+type previewLoadedMsg struct {
+	ref manual.PageRef
+	raw manual.RawPage
+	err error
+}
+
 func New(cfg Config) Model {
 	ctx := cfg.Context
 	if ctx == nil {
@@ -108,15 +118,23 @@ func New(cfg Config) Model {
 	}
 
 	pageInput := textinput.New()
-	pageInput.Prompt = "open › "
+	pageInput.Prompt = "›  "
 	pageInput.Placeholder = "search man pages"
 	pageInput.Focus()
 	pageInput.CharLimit = 256
+	pageInput.PromptStyle = promptStyle
+	pageInput.TextStyle = inputTextStyle
+	pageInput.PlaceholderStyle = placeholderStyle
+	pageInput.Cursor.Style = cursorStyle
 
 	findInput := textinput.New()
 	findInput.Prompt = "/ "
 	findInput.Placeholder = "search within page"
 	findInput.CharLimit = 256
+	findInput.PromptStyle = promptStyle
+	findInput.TextStyle = inputTextStyle
+	findInput.PlaceholderStyle = placeholderStyle
+	findInput.Cursor.Style = cursorStyle
 
 	vp := viewport.New(80, 20)
 	m := Model{
@@ -162,9 +180,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resize()
 		return m, nil
 	case pagesLoadedMsg:
-		return m.handlePagesLoaded(msg), nil
+		return m.handlePagesLoaded(msg)
 	case pageLoadedMsg:
 		return m.handlePageLoaded(msg), nil
+	case previewLoadedMsg:
+		return m.handlePreviewLoaded(msg), nil
 	case historyLoadedMsg:
 		return m.handleHistoryLoaded(msg), nil
 	case tea.KeyMsg:
@@ -177,14 +197,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-func (m Model) handlePagesLoaded(msg pagesLoadedMsg) Model {
+func (m Model) handlePagesLoaded(msg pagesLoadedMsg) (Model, tea.Cmd) {
 	if msg.err != nil {
 		m.status = fmt.Sprintf("Could not load page index: %v", msg.err)
 		if m.currentRef.IsZero() && m.initialRef.IsZero() {
 			m.mode = modeError
 			m.errorText = m.status
 		}
-		return m
+		return m, nil
 	}
 	m.pages = msg.pages
 	m.pageIndex = search.NewPageIndex(msg.pages)
@@ -193,7 +213,7 @@ func (m Model) handlePagesLoaded(msg pagesLoadedMsg) Model {
 		m.mode = modeCommandSearch
 		m.status = "Type to find a manual page."
 	}
-	return m
+	return m.ensurePreview()
 }
 
 func (m Model) handlePageLoaded(msg pageLoadedMsg) Model {
@@ -248,6 +268,21 @@ func (m Model) handleHistoryLoaded(msg historyLoadedMsg) Model {
 	return m
 }
 
+func (m Model) handlePreviewLoaded(msg previewLoadedMsg) Model {
+	if msg.ref.Key() != m.previewRef.Key() {
+		return m
+	}
+	m.previewLoading = false
+	if msg.err != nil {
+		m.previewDoc = document.Document{}
+		m.previewError = msg.err.Error()
+		return m
+	}
+	m.previewError = ""
+	m.previewDoc = document.Parse(msg.raw.Ref, msg.raw.Text)
+	return m
+}
+
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case modeCommandSearch:
@@ -281,11 +316,14 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateCommandSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	previousSelection := ""
+	if len(m.pageResults) > 0 && m.selectedPage >= 0 && m.selectedPage < len(m.pageResults) {
+		previousSelection = m.pageResults[m.selectedPage].Ref.Key()
+	}
+
 	switch msg.String() {
-	case "q":
-		if m.currentRef.IsZero() {
-			return m, tea.Quit
-		}
+	case "ctrl+q":
+		return m, tea.Quit
 	case "esc":
 		if !m.currentRef.IsZero() {
 			m.mode = modeDocument
@@ -293,12 +331,12 @@ func (m Model) updateCommandSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, tea.Quit
-	case "up", "k":
+	case "up", "ctrl+k":
 		m.selectedPage = clamp(m.selectedPage-1, 0, len(m.pageResults)-1)
-		return m, nil
-	case "down", "j":
+		return m.ensurePreview()
+	case "down", "ctrl+j":
 		m.selectedPage = clamp(m.selectedPage+1, 0, len(m.pageResults)-1)
-		return m, nil
+		return m.ensurePreview()
 	case "enter":
 		if len(m.pageResults) == 0 {
 			m.status = "No matching manual page."
@@ -310,7 +348,11 @@ func (m Model) updateCommandSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.pageInput, cmd = m.pageInput.Update(msg)
 	m.recomputePageResults()
-	return m, cmd
+	previewCmd := tea.Cmd(nil)
+	if len(m.pageResults) > 0 && m.pageResults[m.selectedPage].Ref.Key() != previousSelection {
+		m, previewCmd = m.ensurePreview()
+	}
+	return m, tea.Batch(cmd, previewCmd)
 }
 
 func (m Model) updateInPageSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -494,6 +536,13 @@ func loadPageCmd(ctx context.Context, provider manual.Provider, ref manual.PageR
 	}
 }
 
+func loadPreviewCmd(ctx context.Context, provider manual.Provider, ref manual.PageRef, width int) tea.Cmd {
+	return func() tea.Msg {
+		raw, err := provider.OpenPage(ctx, ref, width)
+		return previewLoadedMsg{ref: ref, raw: raw, err: err}
+	}
+}
+
 func loadHistoryCmd(store History) tea.Cmd {
 	return func() tea.Msg {
 		entries, err := store.Entries()
@@ -509,6 +558,32 @@ func (m *Model) recomputePageResults() {
 	}
 	m.pageResults = m.pageIndex.Query(m.pageInput.Value(), max(20, m.height-8))
 	m.selectedPage = clamp(m.selectedPage, 0, len(m.pageResults)-1)
+}
+
+func (m Model) ensurePreview() (Model, tea.Cmd) {
+	if m.mode != modeCommandSearch || len(m.pageResults) == 0 {
+		m.previewRef = manual.PageRef{}
+		m.previewDoc = document.Document{}
+		m.previewLoading = false
+		m.previewError = ""
+		return m, nil
+	}
+	ref := m.pageResults[m.selectedPage].Ref
+	if ref.Key() == m.previewRef.Key() && (m.previewLoading || len(m.previewDoc.Lines) > 0 || m.previewError != "") {
+		return m, nil
+	}
+	m.previewRef = ref
+	m.previewDoc = document.Document{}
+	m.previewLoading = true
+	m.previewError = ""
+	return m, loadPreviewCmd(m.ctx, m.provider, ref, m.previewWidth())
+}
+
+func (m Model) previewWidth() int {
+	if m.width < 90 {
+		return max(60, m.width-8)
+	}
+	return max(60, (m.width*3)/5-8)
 }
 
 func (m *Model) resize() {
@@ -629,16 +704,31 @@ func (m *Model) copyCurrentBlock() {
 const sidebarWidth = 24
 
 var (
+	accentColor       = lipgloss.Color("99")
+	accentBrightColor = lipgloss.Color("141")
+	blueColor         = lipgloss.Color("39")
+	textColor         = lipgloss.Color("252")
+	mutedColor        = lipgloss.Color("244")
+	panelColor        = lipgloss.Color("60")
 	titleStyle        = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
-	subtleStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-	statusStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
+	subtleStyle       = lipgloss.NewStyle().Foreground(mutedColor)
+	statusStyle       = lipgloss.NewStyle().Foreground(textColor)
 	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
-	headingStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
-	optionStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("116"))
+	headingStyle      = lipgloss.NewStyle().Bold(true).Foreground(accentBrightColor)
+	optionStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("114"))
 	exampleStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("151"))
 	matchStyle        = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("229"))
 	currentMatchStyle = lipgloss.NewStyle().Background(lipgloss.Color("57")).Foreground(lipgloss.Color("230")).Bold(true)
-	selectedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("230")).Background(lipgloss.Color("62")).Bold(true)
+	selectedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("230")).Background(accentColor).Bold(true)
+	promptStyle       = lipgloss.NewStyle().Foreground(accentBrightColor).Bold(true)
+	inputTextStyle    = lipgloss.NewStyle().Foreground(textColor)
+	placeholderStyle  = lipgloss.NewStyle().Foreground(mutedColor)
+	cursorStyle       = lipgloss.NewStyle().Foreground(accentBrightColor)
+	labelStyle        = lipgloss.NewStyle().Foreground(accentBrightColor).Bold(true)
+	linkStyle         = lipgloss.NewStyle().Foreground(blueColor).Bold(true)
+	keyStyle          = lipgloss.NewStyle().Foreground(lipgloss.Color("225")).Background(lipgloss.Color("57")).Bold(true).Padding(0, 1)
+	panelStyle        = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(panelColor)
+	inputBoxStyle     = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(accentColor).Padding(0, 1)
 )
 
 func styleDocumentLine(line document.Line, query string, currentMatch bool) string {

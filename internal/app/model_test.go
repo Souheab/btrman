@@ -96,6 +96,58 @@ func TestCommandSearchEnterLoadsSelectedPage(t *testing.T) {
 	}
 }
 
+func TestCommandSearchLettersUpdateQuery(t *testing.T) {
+	pages := []manual.Page{
+		{Ref: manual.PageRef{Name: "jq", Section: "1"}},
+		{Ref: manual.PageRef{Name: "kill", Section: "1"}},
+	}
+	m := New(Config{Provider: fakeProvider{}, Copier: &memoryCopier{}})
+	updated, _ := m.Update(pagesLoadedMsg{pages: pages})
+	m = updated.(Model)
+
+	for _, r := range []rune{'q', 'j', 'k'} {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+
+	if got := m.pageInput.Value(); got != "qjk" {
+		t.Fatalf("query = %q, want qjk", got)
+	}
+}
+
+func TestCommandSearchCtrlJKNavigateResults(t *testing.T) {
+	pages := []manual.Page{
+		{Ref: manual.PageRef{Name: "alpha", Section: "1"}},
+		{Ref: manual.PageRef{Name: "beta", Section: "1"}},
+	}
+	m := New(Config{Provider: fakeProvider{}, Copier: &memoryCopier{}})
+	updated, _ := m.Update(pagesLoadedMsg{pages: pages})
+	m = updated.(Model)
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	m = updated.(Model)
+	if m.selectedPage != 1 {
+		t.Fatalf("selected page after ctrl+j = %d, want 1", m.selectedPage)
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlK})
+	m = updated.(Model)
+	if m.selectedPage != 0 {
+		t.Fatalf("selected page after ctrl+k = %d, want 0", m.selectedPage)
+	}
+}
+
+func TestCommandSearchCtrlQQuits(t *testing.T) {
+	m := New(Config{Provider: fakeProvider{}, Copier: &memoryCopier{}})
+	updated, _ := m.Update(pagesLoadedMsg{pages: []manual.Page{{Ref: manual.PageRef{Name: "ls", Section: "1"}}}})
+	m = updated.(Model)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlQ})
+	if cmd == nil {
+		t.Fatal("expected ctrl+q to return quit command")
+	}
+}
+
 func TestDocumentSearchAndCopy(t *testing.T) {
 	copier := &memoryCopier{}
 	m := New(Config{Provider: fakeProvider{}, Copier: copier})
