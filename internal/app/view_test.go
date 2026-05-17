@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"btrman/internal/document"
@@ -119,5 +120,39 @@ func TestDocumentCommandLineSticksToBottomAndFullWidth(t *testing.T) {
 	}
 	if !strings.Contains(lastLine, "7") {
 		t.Fatalf("expected numeric prefix on command line:\n%s", view)
+	}
+}
+
+func TestInPageSearchRendersInBottomCommandLine(t *testing.T) {
+	m := New(Config{})
+	m.width = 52
+	m.height = 12
+	m.resize()
+	m = m.handlePageLoaded(pageLoadedMsg{raw: manual.RawPage{
+		Ref:  manual.PageRef{Name: "short", Section: "1"},
+		Text: "SHORT(1)\n\nNAME\n       short - small page\n",
+	}})
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(Model)
+
+	view := m.viewInPageSearch()
+	if got := lipgloss.Height(view); got != m.height {
+		t.Fatalf("search view height = %d, want %d\n%s", got, m.height, view)
+	}
+	lines := strings.Split(view, "\n")
+	lastLine := lines[len(lines)-1]
+	if got := lipgloss.Width(lastLine); got != m.width {
+		t.Fatalf("search command line width = %d, want %d\n%s", got, m.width, view)
+	}
+	if !strings.Contains(lastLine, "/ s") || !strings.Contains(lastLine, "Match") {
+		t.Fatalf("expected search prompt and match status in bottom command line:\n%s", view)
+	}
+	if strings.Contains(lastLine, "enter keep") || strings.Contains(lastLine, "esc close") {
+		t.Fatalf("expected compact match status in bottom command line:\n%s", view)
+	}
+	if !strings.HasSuffix(lastLine, "Match 1/3") {
+		t.Fatalf("expected match status at right edge:\n%s", view)
 	}
 }

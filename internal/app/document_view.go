@@ -54,16 +54,17 @@ func (m Model) viewSidebar() string {
 }
 
 func (m Model) viewInPageSearch() string {
-	status := m.status
+	status := ""
 	if len(m.searchMatches) > 0 && m.currentMatch >= 0 {
-		status = fmt.Sprintf("Match %d/%d · enter keep · esc close", m.currentMatch+1, len(m.searchMatches))
+		status = fmt.Sprintf("Match %d/%d", m.currentMatch+1, len(m.searchMatches))
+	} else if m.status == "No matches." {
+		status = m.status
 	}
 	body := m.viewport.View()
 	if m.width >= sidebarThreshold && len(m.doc.Sections) > 0 {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.viewSidebar(), body)
 	}
-	searchBar := m.findInput.View()
-	return m.frame(titleStyle.Render(m.doc.Title), searchBar+"\n"+body, status)
+	return m.frame(titleStyle.Render(m.doc.Title), body, m.viewSearchCommandLine(status))
 }
 
 func (m Model) viewDocumentCommandLine(status string) string {
@@ -72,4 +73,31 @@ func (m Model) viewDocumentCommandLine(status string) string {
 		content = fmt.Sprintf("%d", m.scrollCount)
 	}
 	return commandLineStyle.Width(max(1, m.width)).MaxWidth(max(1, m.width)).Render(content)
+}
+
+func (m Model) viewSearchCommandLine(status string) string {
+	input := m.findInput
+	availableWidth := max(1, m.width-commandLineStyle.GetHorizontalFrameSize())
+	input.PromptStyle = commandLineStyle
+	input.TextStyle = commandLineStyle
+	input.Cursor.Style = commandLineStyle
+	input.PlaceholderStyle = commandLineStyle
+
+	right := truncate(status, availableWidth)
+	rightWidth := lipgloss.Width(right)
+	gapWidth := 0
+	if status != "" {
+		gapWidth = 1
+	}
+
+	leftWidth := max(1, availableWidth-rightWidth-gapWidth)
+	input.Width = max(1, leftWidth-lipgloss.Width(input.Prompt))
+	left := commandLineStyle.Width(leftWidth).MaxWidth(leftWidth).Render(input.View())
+
+	content := left
+	if right != "" {
+		content += commandLineStyle.Render(strings.Repeat(" ", max(0, availableWidth-lipgloss.Width(left)-rightWidth)))
+		content += commandLineStyle.Render(right)
+	}
+	return content
 }
