@@ -20,6 +20,7 @@ var (
 	matchStyle        = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("229"))
 	currentMatchStyle = lipgloss.NewStyle().Background(lipgloss.Color("57")).Foreground(lipgloss.Color("230")).Bold(true)
 	selectedStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("230")).Background(accentColor).Bold(true)
+	dividerStyle      = lipgloss.NewStyle().Foreground(panelColor)
 	promptStyle       = lipgloss.NewStyle().Foreground(accentBrightColor).Bold(true)
 	inputTextStyle    = lipgloss.NewStyle().Foreground(textColor)
 	placeholderStyle  = lipgloss.NewStyle().Foreground(mutedColor)

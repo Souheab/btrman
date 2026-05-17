@@ -13,9 +13,7 @@ func (m Model) viewDocument() string {
 		title += subtleStyle.Render("  " + m.currentRef.String())
 	}
 	body := m.viewport.View()
-	if m.width >= sidebarThreshold && len(m.doc.Sections) > 0 {
-		body = lipgloss.JoinHorizontal(lipgloss.Top, m.viewSidebar(), body)
-	}
+	body = m.viewDocumentBody(body)
 	status := m.status
 	if status == "" {
 		status = "o open · / search · [ ] sections · r related · h history · y copy · q quit"
@@ -53,6 +51,22 @@ func (m Model) viewSidebar() string {
 	return lipgloss.NewStyle().Width(sidebarWidth).PaddingRight(1).Render(b.String())
 }
 
+func (m Model) viewDocumentBody(document string) string {
+	if m.width < sidebarThreshold || len(m.doc.Sections) == 0 {
+		return document
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, m.viewSidebar(), m.viewDocumentDivider(), document)
+}
+
+func (m Model) viewDocumentDivider() string {
+	height := max(1, m.viewport.Height)
+	lines := make([]string, height)
+	for i := range lines {
+		lines[i] = "│"
+	}
+	return dividerStyle.Render(strings.Join(lines, "\n"))
+}
+
 func (m Model) viewInPageSearch() string {
 	status := ""
 	if len(m.searchMatches) > 0 && m.currentMatch >= 0 {
@@ -61,9 +75,7 @@ func (m Model) viewInPageSearch() string {
 		status = m.status
 	}
 	body := m.viewport.View()
-	if m.width >= sidebarThreshold && len(m.doc.Sections) > 0 {
-		body = lipgloss.JoinHorizontal(lipgloss.Top, m.viewSidebar(), body)
-	}
+	body = m.viewDocumentBody(body)
 	return m.frame(titleStyle.Render(m.doc.Title), body, m.viewSearchCommandLine(status))
 }
 

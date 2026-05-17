@@ -123,6 +123,32 @@ func TestDocumentCommandLineSticksToBottomAndFullWidth(t *testing.T) {
 	}
 }
 
+func TestDocumentViewDividesSectionsAndDocument(t *testing.T) {
+	m := New(Config{})
+	m.width = 100
+	m.height = 12
+	m.resize()
+	m = m.handlePageLoaded(pageLoadedMsg{raw: manual.RawPage{
+		Ref: manual.PageRef{Name: "short", Section: "1"},
+		Text: strings.Join([]string{
+			"SHORT(1)",
+			"",
+			"NAME",
+			"       short - small page",
+			"DESCRIPTION",
+			"       more text",
+		}, "\n"),
+	}})
+
+	view := m.viewDocument()
+	if !strings.Contains(view, "│") {
+		t.Fatalf("expected divider between sections and document:\n%s", view)
+	}
+	if got := lipgloss.Height(view); got != m.height {
+		t.Fatalf("document view height = %d, want %d\n%s", got, m.height, view)
+	}
+}
+
 func TestInPageSearchRendersInBottomCommandLine(t *testing.T) {
 	m := New(Config{})
 	m.width = 52
