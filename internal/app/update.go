@@ -104,6 +104,7 @@ func (m Model) handlePageLoaded(msg pageLoadedMsg) Model {
 	m.status = "Opened " + msg.raw.Ref.String()
 	m.viewport.GotoTop()
 	m.selectedSection = 0
+	m.clearScrollCount()
 	m.rebuildViewportContent()
 	if m.history != nil {
 		if err := m.history.Add(msg.raw.Ref, m.doc.Title); err != nil {
@@ -291,6 +292,12 @@ func (m Model) updateHistory(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateDocument(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if digit, ok := scrollCountDigit(msg); ok {
+		m.appendScrollCount(digit)
+		return m, nil
+	}
+
+	count := m.consumeScrollCount()
 	switch msg.String() {
 	case "q":
 		return m, tea.Quit
@@ -354,9 +361,9 @@ func (m Model) updateDocument(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.copyCurrentBlock()
 		return m, nil
 	case "j", "down":
-		m.viewport.LineDown(1)
+		m.viewport.LineDown(count)
 	case "k", "up":
-		m.viewport.LineUp(1)
+		m.viewport.LineUp(count)
 	case "pgdown", "ctrl+f":
 		m.viewport.PageDown()
 	case "pgup", "ctrl+b":
@@ -373,6 +380,37 @@ func (m Model) updateDocument(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	m.syncSection()
 	return m, nil
+}
+
+func scrollCountDigit(msg tea.KeyMsg) (int, bool) {
+	if msg.Type != tea.KeyRunes || len(msg.Runes) != 1 {
+		return 0, false
+	}
+	r := msg.Runes[0]
+	if r < '0' || r > '9' {
+		return 0, false
+	}
+	return int(r - '0'), true
+}
+
+func (m *Model) appendScrollCount(digit int) {
+	const maxScrollCount = 9999
+	m.hasScrollCount = true
+	m.scrollCount = min(maxScrollCount, m.scrollCount*10+digit)
+}
+
+func (m *Model) consumeScrollCount() int {
+	if !m.hasScrollCount {
+		return 1
+	}
+	count := m.scrollCount
+	m.clearScrollCount()
+	return count
+}
+
+func (m *Model) clearScrollCount() {
+	m.scrollCount = 0
+	m.hasScrollCount = false
 }
 
 func (m Model) startLoad(ref manual.PageRef, push bool) (tea.Model, tea.Cmd) {

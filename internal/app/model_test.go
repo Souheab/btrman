@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -166,5 +167,34 @@ func TestDocumentSearchAndCopy(t *testing.T) {
 	m = updated.(Model)
 	if copier.text == "" {
 		t.Fatal("expected copied text")
+	}
+}
+
+func TestDocumentNumericPrefixScrollsLines(t *testing.T) {
+	m := New(Config{Provider: fakeProvider{}, Copier: &memoryCopier{}})
+	lines := []string{"LONG(1)", "", "NAME", "       long - test page", "", "DESCRIPTION"}
+	for i := 0; i < 80; i++ {
+		lines = append(lines, "       line")
+	}
+	updated, _ := m.Update(pageLoadedMsg{raw: manual.RawPage{
+		Ref:  manual.PageRef{Name: "long", Section: "1"},
+		Text: strings.Join(lines, "\n"),
+	}})
+	m = updated.(Model)
+
+	for _, r := range []rune{'1', '2', 'j'} {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+	if got := m.viewport.YOffset; got != 12 {
+		t.Fatalf("viewport offset after 12j = %d, want 12", got)
+	}
+
+	for _, r := range []rune{'3', 'k'} {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+	if got := m.viewport.YOffset; got != 9 {
+		t.Fatalf("viewport offset after 3k = %d, want 9", got)
 	}
 }

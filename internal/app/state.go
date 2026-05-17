@@ -24,6 +24,8 @@ type DocumentState struct {
 	plainLines      []string
 	currentRef      manual.PageRef
 	selectedSection int
+	scrollCount     int
+	hasScrollCount  bool
 }
 
 type SearchState struct {
