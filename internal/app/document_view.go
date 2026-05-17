@@ -20,7 +20,7 @@ func (m Model) viewDocument() string {
 	if status == "" {
 		status = "o open · / search · [ ] sections · r related · h history · y copy · q quit"
 	}
-	return m.frame(title, body, status)
+	return m.frame(title, body, m.viewDocumentCommandLine(status))
 }
 
 func (m Model) viewSidebar() string {
@@ -64,4 +64,12 @@ func (m Model) viewInPageSearch() string {
 	}
 	searchBar := m.findInput.View()
 	return m.frame(titleStyle.Render(m.doc.Title), searchBar+"\n"+body, status)
+}
+
+func (m Model) viewDocumentCommandLine(status string) string {
+	content := status
+	if m.hasScrollCount {
+		content = fmt.Sprintf("%d", m.scrollCount)
+	}
+	return commandLineStyle.Width(max(1, m.width)).MaxWidth(max(1, m.width)).Render(content)
 }

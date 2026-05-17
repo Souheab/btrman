@@ -29,15 +29,23 @@ func (m Model) View() string {
 
 func (m Model) frame(header, body, footer string) string {
 	availableWidth := max(20, m.width)
-	parts := make([]string, 0, 3)
+	parts := make([]string, 0, 2)
 	if header != "" {
-		parts = append(parts, lipgloss.NewStyle().Width(availableWidth).Render(header))
+		rendered := lipgloss.NewStyle().Width(availableWidth).Render(header)
+		parts = append(parts, rendered)
 	}
 	if body != "" {
 		parts = append(parts, body)
 	}
+	content := strings.Join(parts, "\n")
 	if footer != "" {
-		parts = append(parts, statusStyle.Width(availableWidth).Render(footer))
+		rendered := statusStyle.Width(availableWidth).Render(footer)
+		footerHeight := lipgloss.Height(rendered)
+		spacerHeight := m.height - lipgloss.Height(content) - footerHeight
+		if content == "" {
+			return strings.Repeat("\n", max(0, spacerHeight)) + rendered
+		}
+		return content + strings.Repeat("\n", max(1, spacerHeight+1)) + rendered
 	}
-	return strings.Join(parts, "\n")
+	return content
 }

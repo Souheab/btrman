@@ -96,3 +96,28 @@ func TestCommandListKeepsResultCountOnOneLine(t *testing.T) {
 		t.Fatalf("expected result count on one line:\n%s", view)
 	}
 }
+
+func TestDocumentCommandLineSticksToBottomAndFullWidth(t *testing.T) {
+	m := New(Config{})
+	m.width = 48
+	m.height = 12
+	m.resize()
+	m = m.handlePageLoaded(pageLoadedMsg{raw: manual.RawPage{
+		Ref:  manual.PageRef{Name: "short", Section: "1"},
+		Text: "SHORT(1)\n\nNAME\n       short - small page\n",
+	}})
+	m.appendScrollCount(7)
+
+	view := m.viewDocument()
+	if got := lipgloss.Height(view); got != m.height {
+		t.Fatalf("document view height = %d, want %d\n%s", got, m.height, view)
+	}
+	lines := strings.Split(view, "\n")
+	lastLine := lines[len(lines)-1]
+	if got := lipgloss.Width(lastLine); got != m.width {
+		t.Fatalf("command line width = %d, want %d\n%s", got, m.width, view)
+	}
+	if !strings.Contains(lastLine, "7") {
+		t.Fatalf("expected numeric prefix on command line:\n%s", view)
+	}
+}

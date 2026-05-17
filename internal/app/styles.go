@@ -12,6 +12,7 @@ var (
 	titleStyle        = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
 	subtleStyle       = lipgloss.NewStyle().Foreground(mutedColor)
 	statusStyle       = lipgloss.NewStyle().Foreground(textColor)
+	commandLineStyle  = lipgloss.NewStyle().Foreground(textColor).Background(lipgloss.Color("236")).Padding(0, 1)
 	errorStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
 	headingStyle      = lipgloss.NewStyle().Bold(true).Foreground(accentBrightColor)
 	optionStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("114"))

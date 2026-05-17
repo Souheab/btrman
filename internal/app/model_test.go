@@ -198,3 +198,23 @@ func TestDocumentNumericPrefixScrollsLines(t *testing.T) {
 		t.Fatalf("viewport offset after 3k = %d, want 9", got)
 	}
 }
+
+func TestDocumentCommandLineShowsNumericPrefix(t *testing.T) {
+	m := New(Config{Provider: fakeProvider{}, Copier: &memoryCopier{}})
+	updated, _ := m.Update(pageLoadedMsg{raw: manual.RawPage{
+		Ref:  manual.PageRef{Name: "long", Section: "1"},
+		Text: "LONG(1)\n\nNAME\n       long - test page\n",
+	}})
+	m = updated.(Model)
+
+	for _, r := range []rune{'1', '2'} {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+
+	view := m.viewDocument()
+	lines := strings.Split(view, "\n")
+	if len(lines) == 0 || !strings.Contains(lines[len(lines)-1], "12") {
+		t.Fatalf("expected numeric prefix in document command line:\n%s", view)
+	}
+}
