@@ -100,6 +100,7 @@ Keybindings:
   [ / ]           previous/next section
   o               open fuzzy command search
   /               search within the current page
+  ctrl+f          swiper-style search within the current page
   n / N           next/previous in-page match
   r or g          related manual pages
   h               recent history

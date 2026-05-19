@@ -182,3 +182,63 @@ func TestInPageSearchRendersInBottomCommandLine(t *testing.T) {
 		t.Fatalf("expected match status at right edge:\n%s", view)
 	}
 }
+
+func TestSwiperSearchOverlayFitsTerminalAndShowsControls(t *testing.T) {
+	m := New(Config{})
+	m.width = 64
+	m.height = 16
+	m.resize()
+	m = m.handlePageLoaded(pageLoadedMsg{raw: manual.RawPage{
+		Ref: manual.PageRef{Name: "short", Section: "1"},
+		Text: strings.Join([]string{
+			"SHORT(1)",
+			"",
+			"NAME",
+			"       short - small page",
+			"",
+			"EXAMPLES",
+			"       short search example",
+		}, "\n"),
+	}})
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = updated.(Model)
+	for _, r := range []rune("short") {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+
+	view := m.viewSwiperSearch()
+	if got := lipgloss.Height(view); got != m.height {
+		t.Fatalf("swiper view height = %d, want %d\n%s", got, m.height, view)
+	}
+	for _, want := range []string{"Search (swiper):", "matches", "Navigate", "Jump", "Cancel"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("expected %q in swiper view:\n%s", want, view)
+		}
+	}
+}
+
+func TestSwiperSearchOverlayShowsNoMatches(t *testing.T) {
+	m := New(Config{})
+	m.width = 52
+	m.height = 14
+	m.resize()
+	m = m.handlePageLoaded(pageLoadedMsg{raw: manual.RawPage{
+		Ref:  manual.PageRef{Name: "short", Section: "1"},
+		Text: "SHORT(1)\n\nNAME\n       short - small page\n",
+	}})
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = updated.(Model)
+	for _, r := range []rune("zzzzz") {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+
+	view := m.viewSwiperSearch()
+	if !strings.Contains(view, "0 matches") || !strings.Contains(view, "No matches.") {
+		t.Fatalf("expected no-match state in swiper view:\n%s", view)
+	}
+	if got := lipgloss.Height(view); got != m.height {
+		t.Fatalf("swiper no-match view height = %d, want %d\n%s", got, m.height, view)
+	}
+}

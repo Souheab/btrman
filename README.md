@@ -45,6 +45,7 @@ btrman 1 printf
 | `[` / `]`, `shift+tab` / `tab` | Previous/next section |
 | `o` | Open command search |
 | `/` | In-page search |
+| `ctrl+f` | Swiper-style in-page search |
 | `n` / `N` | Next/previous in-page match |
 | `r` or `g` | Related pages from detected man references |
 | `h` | Recent history |
@@ -52,3 +53,8 @@ btrman 1 printf
 | `y` | Copy current line |
 | `Y` | Copy current paragraph/block |
 | `esc` | Close the current overlay/input |
+
+## Development Roadmap
+### Bug fixes
+ - Clunky swiper
+ - Improve fuzzy search algorithm

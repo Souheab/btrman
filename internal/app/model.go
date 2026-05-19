@@ -33,6 +33,7 @@ const (
 	modeDocument
 	modeCommandSearch
 	modeInPageSearch
+	modeSwiperSearch
 	modeRelated
 	modeHistory
 	modeError
@@ -55,6 +56,7 @@ type Model struct {
 	BrowserState
 	DocumentState
 	SearchState
+	SwiperState
 	PreviewState
 	HistoryState
 	RelatedState
@@ -94,6 +96,15 @@ func New(cfg Config) Model {
 	findInput.PlaceholderStyle = placeholderStyle
 	findInput.Cursor.Style = cursorStyle
 
+	swiperInput := textinput.New()
+	swiperInput.Prompt = "Search (swiper): "
+	swiperInput.Placeholder = "search within page"
+	swiperInput.CharLimit = 256
+	swiperInput.PromptStyle = promptStyle
+	swiperInput.TextStyle = inputTextStyle
+	swiperInput.PlaceholderStyle = placeholderStyle
+	swiperInput.Cursor.Style = cursorStyle
+
 	vp := viewport.New(80, 20)
 	m := Model{
 		ctx:        ctx,
@@ -115,6 +126,10 @@ func New(cfg Config) Model {
 		SearchState: SearchState{
 			findInput:    findInput,
 			currentMatch: -1,
+		},
+		SwiperState: SwiperState{
+			swiperInput:    swiperInput,
+			selectedSwiper: -1,
 		},
 	}
 	m.resize()

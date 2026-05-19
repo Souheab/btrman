@@ -170,6 +170,112 @@ func TestDocumentSearchAndCopy(t *testing.T) {
 	}
 }
 
+func TestSwiperSearchOpensWithCtrlFAndDoesNotPageDown(t *testing.T) {
+	m := newSwiperTestModel()
+	m.viewport.SetYOffset(3)
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = updated.(Model)
+
+	if m.mode != modeSwiperSearch {
+		t.Fatalf("mode = %v, want swiper search", m.mode)
+	}
+	if got := m.viewport.YOffset; got != 3 {
+		t.Fatalf("viewport offset = %d, want 3", got)
+	}
+	if m.swiperOriginOffset != 3 {
+		t.Fatalf("swiper origin = %d, want 3", m.swiperOriginOffset)
+	}
+}
+
+func TestSwiperSearchTypingFiltersOneRowPerLineAndJumps(t *testing.T) {
+	m := newSwiperTestModel()
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = updated.(Model)
+
+	for _, r := range []rune("printf") {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+
+	if len(m.swiperResults) != 4 {
+		t.Fatalf("swiper results = %d, want 4", len(m.swiperResults))
+	}
+	if len(m.swiperResults[1].Matches) != 2 {
+		t.Fatalf("second result matches = %d, want 2", len(m.swiperResults[1].Matches))
+	}
+	if m.selectedSwiper != 0 {
+		t.Fatalf("selected swiper = %d, want 0", m.selectedSwiper)
+	}
+	if got, want := m.viewport.YOffset, m.swiperResults[0].Line; got != want {
+		t.Fatalf("viewport offset = %d, want %d", got, want)
+	}
+}
+
+func TestSwiperSearchNavigationMovesViewport(t *testing.T) {
+	m := newSwiperTestModel()
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = updated.(Model)
+	for _, r := range []rune("printf") {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlJ})
+	m = updated.(Model)
+	if m.selectedSwiper != 1 || m.viewport.YOffset != m.swiperResults[1].Line {
+		t.Fatalf("after ctrl+j selected=%d offset=%d results=%#v", m.selectedSwiper, m.viewport.YOffset, m.swiperResults)
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = updated.(Model)
+	if m.selectedSwiper != 2 || m.viewport.YOffset != m.swiperResults[2].Line {
+		t.Fatalf("after down selected=%d offset=%d results=%#v", m.selectedSwiper, m.viewport.YOffset, m.swiperResults)
+	}
+
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlK})
+	m = updated.(Model)
+	if m.selectedSwiper != 1 || m.viewport.YOffset != m.swiperResults[1].Line {
+		t.Fatalf("after ctrl+k selected=%d offset=%d results=%#v", m.selectedSwiper, m.viewport.YOffset, m.swiperResults)
+	}
+}
+
+func TestSwiperSearchEnterKeepsJumpAndEscRestoresOrigin(t *testing.T) {
+	m := newSwiperTestModel()
+	m.viewport.SetYOffset(3)
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = updated.(Model)
+	for _, r := range []rune("hello") {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+	jumpOffset := m.viewport.YOffset
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if m.mode != modeDocument || m.viewport.YOffset != jumpOffset {
+		t.Fatalf("enter mode=%v offset=%d want offset %d", m.mode, m.viewport.YOffset, jumpOffset)
+	}
+
+	m.viewport.SetYOffset(3)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = updated.(Model)
+	for _, r := range []rune("hello") {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = updated.(Model)
+	}
+	if m.viewport.YOffset == 3 {
+		t.Fatal("expected swiper search to jump before cancel")
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = updated.(Model)
+	if m.mode != modeDocument || m.viewport.YOffset != 3 {
+		t.Fatalf("esc mode=%v offset=%d, want document offset 3", m.mode, m.viewport.YOffset)
+	}
+	if len(m.swiperResults) != 0 || m.swiperInput.Value() != "" {
+		t.Fatalf("expected swiper state to clear, got input=%q results=%d", m.swiperInput.Value(), len(m.swiperResults))
+	}
+}
+
 func TestDocumentNumericPrefixScrollsLines(t *testing.T) {
 	m := New(Config{Provider: fakeProvider{}, Copier: &memoryCopier{}})
 	lines := []string{"LONG(1)", "", "NAME", "       long - test page", "", "DESCRIPTION"}
@@ -197,6 +303,35 @@ func TestDocumentNumericPrefixScrollsLines(t *testing.T) {
 	if got := m.viewport.YOffset; got != 9 {
 		t.Fatalf("viewport offset after 3k = %d, want 9", got)
 	}
+}
+
+func newSwiperTestModel() Model {
+	m := New(Config{Provider: fakeProvider{}, Copier: &memoryCopier{}})
+	updated := m.handlePageLoaded(pageLoadedMsg{raw: manual.RawPage{
+		Ref: manual.PageRef{Name: "printf", Section: "1"},
+		Text: strings.Join([]string{
+			"PRINTF(1)",
+			"",
+			"NAME",
+			"       printf printf - format data",
+			"",
+			"DESCRIPTION",
+			"       write formatted output with printf",
+			"       no match here",
+			"",
+			"EXAMPLES",
+			"       printf hello",
+			"       tail one",
+			"       tail two",
+			"       tail three",
+			"       tail four",
+			"       tail five",
+			"       tail six",
+		}, "\n"),
+	}})
+	updated.height = 10
+	updated.resize()
+	return updated
 }
 
 func TestDocumentCommandLineShowsNumericPrefix(t *testing.T) {

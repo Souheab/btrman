@@ -34,6 +34,13 @@ type SearchState struct {
 	currentMatch  int
 }
 
+type SwiperState struct {
+	swiperInput        textinput.Model
+	swiperResults      []search.LineResult
+	selectedSwiper     int
+	swiperOriginOffset int
+}
+
 type PreviewState struct {
 	previewRef     manual.PageRef
 	previewDoc     document.Document

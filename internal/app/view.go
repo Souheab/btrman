@@ -14,6 +14,8 @@ func (m Model) View() string {
 		return m.viewCommandSearch()
 	case modeInPageSearch:
 		return m.viewInPageSearch()
+	case modeSwiperSearch:
+		return m.viewSwiperSearch()
 	case modeRelated:
 		return m.viewRelated()
 	case modeHistory:

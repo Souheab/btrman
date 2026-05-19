@@ -100,6 +100,7 @@ func (m Model) handlePageLoaded(msg pageLoadedMsg) Model {
 	m.searchMatches = nil
 	m.currentMatch = -1
 	m.findInput.SetValue("")
+	m.clearSwiper()
 	m.mode = modeDocument
 	m.status = "Opened " + msg.raw.Ref.String()
 	m.viewport.GotoTop()
@@ -152,6 +153,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateCommandSearch(msg)
 	case modeInPageSearch:
 		return m.updateInPageSearch(msg)
+	case modeSwiperSearch:
+		return m.updateSwiperSearch(msg)
 	case modeRelated:
 		return m.updateRelated(msg)
 	case modeHistory:
@@ -251,6 +254,31 @@ func (m Model) updateInPageSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m Model) updateSwiperSearch(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.viewport.SetYOffset(m.swiperOriginOffset)
+		m.closeSwiper()
+		m.syncSection()
+		return m, nil
+	case "enter":
+		m.closeSwiper()
+		m.syncSection()
+		return m, nil
+	case "up", "ctrl+k":
+		m.moveSwiperSelection(-1)
+		return m, nil
+	case "down", "ctrl+j":
+		m.moveSwiperSelection(1)
+		return m, nil
+	}
+
+	var cmd tea.Cmd
+	m.swiperInput, cmd = m.swiperInput.Update(msg)
+	m.recomputeSwiperResults()
+	return m, cmd
+}
+
 func (m Model) updateRelated(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q":
@@ -317,6 +345,9 @@ func (m Model) updateDocument(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.findInput.Focus()
 		m.status = "Search within page."
 		return m, nil
+	case "ctrl+f":
+		m.openSwiper()
+		return m, nil
 	case "n":
 		m.gotoMatch(1)
 		return m, nil
@@ -364,7 +395,7 @@ func (m Model) updateDocument(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.viewport.LineDown(count)
 	case "k", "up":
 		m.viewport.LineUp(count)
-	case "pgdown", "ctrl+f":
+	case "pgdown":
 		m.viewport.PageDown()
 	case "pgup", "ctrl+b":
 		m.viewport.PageUp()
@@ -411,6 +442,69 @@ func (m *Model) consumeScrollCount() int {
 func (m *Model) clearScrollCount() {
 	m.scrollCount = 0
 	m.hasScrollCount = false
+}
+
+func (m *Model) openSwiper() {
+	m.clearScrollCount()
+	m.mode = modeSwiperSearch
+	m.swiperOriginOffset = m.viewport.YOffset
+	m.swiperInput.SetValue("")
+	m.swiperInput.Focus()
+	m.swiperResults = nil
+	m.selectedSwiper = -1
+	m.status = "Search within page."
+	m.rebuildViewportContent()
+}
+
+func (m *Model) closeSwiper() {
+	m.mode = modeDocument
+	m.clearSwiper()
+	m.status = ""
+	m.rebuildViewportContent()
+}
+
+func (m *Model) clearSwiper() {
+	m.swiperInput.SetValue("")
+	m.swiperResults = nil
+	m.selectedSwiper = -1
+	m.swiperOriginOffset = 0
+}
+
+func (m *Model) recomputeSwiperResults() {
+	m.swiperResults = search.FindLinesInDocument(m.doc, m.swiperInput.Value())
+	if len(m.swiperResults) == 0 {
+		m.selectedSwiper = -1
+		if strings.TrimSpace(m.swiperInput.Value()) == "" {
+			m.status = "Search within page."
+		} else {
+			m.status = "0 matches"
+		}
+		m.rebuildViewportContent()
+		m.syncSection()
+		return
+	}
+	m.selectedSwiper = 0
+	m.gotoSwiperResult()
+}
+
+func (m *Model) moveSwiperSelection(delta int) {
+	if len(m.swiperResults) == 0 {
+		m.status = "0 matches"
+		return
+	}
+	m.selectedSwiper = clamp(m.selectedSwiper+delta, 0, len(m.swiperResults)-1)
+	m.gotoSwiperResult()
+}
+
+func (m *Model) gotoSwiperResult() {
+	if m.selectedSwiper < 0 || m.selectedSwiper >= len(m.swiperResults) {
+		return
+	}
+	result := m.swiperResults[m.selectedSwiper]
+	m.viewport.SetYOffset(result.Line)
+	m.status = fmt.Sprintf("Match %d/%d", m.selectedSwiper+1, len(m.swiperResults))
+	m.rebuildViewportContent()
+	m.syncSection()
 }
 
 func (m Model) startLoad(ref manual.PageRef, push bool) (tea.Model, tea.Cmd) {
@@ -463,6 +557,12 @@ func (m *Model) rebuildViewportContent() {
 	query := ""
 	if len(m.searchMatches) > 0 {
 		query = m.findInput.Value()
+	}
+	if m.mode == modeSwiperSearch && strings.TrimSpace(m.swiperInput.Value()) != "" {
+		query = m.swiperInput.Value()
+		if m.selectedSwiper >= 0 && m.selectedSwiper < len(m.swiperResults) {
+			currentLine = m.swiperResults[m.selectedSwiper].Line
+		}
 	}
 	lines := make([]string, len(m.doc.Lines))
 	for i, line := range m.doc.Lines {

@@ -21,6 +21,7 @@ func (m *Model) resize() {
 	}
 	m.pageInput.Width = max(20, m.width-10)
 	m.findInput.Width = max(20, m.width-10)
+	m.swiperInput.Width = max(20, m.width-10)
 	m.viewport.Width = max(20, m.contentWidth())
 	m.viewport.Height = max(5, m.height-4)
 	m.rebuildViewportContent()

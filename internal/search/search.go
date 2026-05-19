@@ -60,6 +60,14 @@ type LineMatch struct {
 	End   int
 }
 
+type LineResult struct {
+	Line         int
+	Text         string
+	SectionIndex int
+	SectionTitle string
+	Matches      []LineMatch
+}
+
 func FindInDocument(doc document.Document, query string) []LineMatch {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -84,6 +92,35 @@ func FindInDocument(doc document.Document, query string) []LineMatch {
 		}
 	}
 	return matches
+}
+
+func FindLinesInDocument(doc document.Document, query string) []LineResult {
+	matches := FindInDocument(doc, query)
+	if len(matches) == 0 {
+		return nil
+	}
+	results := make([]LineResult, 0, len(matches))
+	byLine := -1
+	for _, match := range matches {
+		if match.Line != byLine {
+			byLine = match.Line
+			line := doc.Lines[match.Line]
+			sectionIndex := line.SectionIndex
+			sectionTitle := ""
+			if sectionIndex >= 0 && sectionIndex < len(doc.Sections) {
+				sectionTitle = doc.Sections[sectionIndex].Title
+			}
+			results = append(results, LineResult{
+				Line:         match.Line,
+				Text:         line.Text,
+				SectionIndex: sectionIndex,
+				SectionTitle: sectionTitle,
+			})
+		}
+		last := len(results) - 1
+		results[last].Matches = append(results[last].Matches, match)
+	}
+	return results
 }
 
 func MoveMatch(matches []LineMatch, current int, delta int) int {
