@@ -68,6 +68,28 @@ func TestPagesLoadedOpensCommandSearch(t *testing.T) {
 	}
 }
 
+func TestInitialRawInputOpensDocument(t *testing.T) {
+	raw := manual.RawPage{Ref: manual.PageRef{Name: "ls", Section: "1"}, Text: "LS(1)\n\nNAME\n       ls - list files\n"}
+	m := New(Config{InitialRaw: &raw, Copier: &memoryCopier{}})
+
+	cmd := m.Init()
+	if cmd == nil {
+		t.Fatal("expected initial raw command")
+	}
+	updated, _ := m.Update(cmd())
+	m = updated.(Model)
+
+	if m.mode != modeDocument {
+		t.Fatalf("mode = %v, want document", m.mode)
+	}
+	if m.currentRef.String() != "ls(1)" {
+		t.Fatalf("current ref = %q", m.currentRef.String())
+	}
+	if m.doc.Title != "LS(1)" {
+		t.Fatalf("title = %q, want LS(1)", m.doc.Title)
+	}
+}
+
 func TestCommandSearchEnterLoadsSelectedPage(t *testing.T) {
 	provider := fakeProvider{
 		pages: []manual.Page{{Ref: manual.PageRef{Name: "ls", Section: "1"}}},

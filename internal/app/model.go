@@ -23,6 +23,8 @@ type Config struct {
 	History    History
 	Copier     btrclipboard.Copier
 	InitialRef manual.PageRef
+	InitialRaw *manual.RawPage
+	InputTTY   bool
 	Version    string
 }
 
@@ -52,6 +54,7 @@ type Model struct {
 	status     string
 	errorText  string
 	initialRef manual.PageRef
+	initialRaw *manual.RawPage
 
 	BrowserState
 	DocumentState
@@ -117,6 +120,7 @@ func New(cfg Config) Model {
 		height:     30,
 		status:     "Loading manual page index…",
 		initialRef: cfg.InitialRef,
+		initialRaw: cfg.InitialRaw,
 		BrowserState: BrowserState{
 			pageInput: pageInput,
 		},
@@ -138,13 +142,22 @@ func New(cfg Config) Model {
 
 func Run(ctx context.Context, cfg Config) error {
 	cfg.Context = ctx
-	program := tea.NewProgram(New(cfg), tea.WithAltScreen())
+	options := []tea.ProgramOption{tea.WithAltScreen()}
+	if cfg.InputTTY {
+		options = append(options, tea.WithInputTTY())
+	}
+	program := tea.NewProgram(New(cfg), options...)
 	_, err := program.Run()
 	return err
 }
 
 func (m Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{loadPagesCmd(m.ctx, m.provider)}
+	cmds := make([]tea.Cmd, 0, 2)
+	if m.initialRaw != nil {
+		cmds = append(cmds, loadRawPageCmd(*m.initialRaw))
+	} else {
+		cmds = append(cmds, loadPagesCmd(m.ctx, m.provider))
+	}
 	if !m.initialRef.IsZero() {
 		cmds = append(cmds, loadPageCmd(m.ctx, m.provider, m.initialRef, m.contentWidth()))
 	}

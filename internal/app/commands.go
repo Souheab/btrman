@@ -22,6 +22,12 @@ func loadPageCmd(ctx context.Context, provider manual.Provider, ref manual.PageR
 	}
 }
 
+func loadRawPageCmd(raw manual.RawPage) tea.Cmd {
+	return func() tea.Msg {
+		return pageLoadedMsg{ref: raw.Ref, raw: raw}
+	}
+}
+
 func loadPreviewCmd(ctx context.Context, provider manual.Provider, ref manual.PageRef, width int) tea.Cmd {
 	return func() tea.Msg {
 		raw, err := provider.OpenPage(ctx, ref, width)

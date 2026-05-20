@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -30,10 +31,19 @@ func run(args []string) int {
 		}
 	}
 
-	ref, err := parseInitialRef(args)
+	raw, inputTTY, err := readPagerInput(os.Stdin)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 2
+		fmt.Fprintln(os.Stderr, "read pager input:", err)
+		return 1
+	}
+
+	var ref manual.PageRef
+	if raw == nil {
+		ref, err = parseInitialRef(args)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 2
+		}
 	}
 
 	historyStore, err := history.NewStore()
@@ -46,6 +56,8 @@ func run(args []string) int {
 		History:    historyStore,
 		Copier:     btrclipboard.SystemCopier{},
 		InitialRef: ref,
+		InitialRaw: raw,
+		InputTTY:   inputTTY,
 		Version:    version,
 	}
 	if err := app.Run(context.Background(), cfg); err != nil {
@@ -53,6 +65,40 @@ func run(args []string) int {
 		return 1
 	}
 	return 0
+}
+
+func readPagerInput(stdin *os.File) (*manual.RawPage, bool, error) {
+	info, err := stdin.Stat()
+	if err != nil {
+		return nil, false, err
+	}
+	if info.Mode()&os.ModeCharDevice != 0 {
+		return nil, false, nil
+	}
+
+	data, err := io.ReadAll(stdin)
+	if err != nil {
+		return nil, false, err
+	}
+	text := manual.CleanManOutput(string(data))
+	raw := manual.RawPage{
+		Ref:  inferInputRef(text),
+		Text: text,
+	}
+	return &raw, true, nil
+}
+
+func inferInputRef(text string) manual.PageRef {
+	for _, line := range strings.Split(text, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if ref, ok := manual.ParsePageRef(fields[0]); ok && ref.Section != "" {
+			return ref
+		}
+	}
+	return manual.PageRef{}
 }
 
 func parseInitialRef(args []string) (manual.PageRef, error) {

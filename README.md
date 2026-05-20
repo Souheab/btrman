@@ -33,6 +33,11 @@ btrman
 btrman ls
 btrman 'printf(1)'
 btrman 1 printf
+
+# Use as a man pager
+MANPAGER=btrman man ls
+man -P btrman ls
+man ls | btrman
 ```
 
 ## Keybindings

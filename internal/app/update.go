@@ -102,12 +102,16 @@ func (m Model) handlePageLoaded(msg pageLoadedMsg) Model {
 	m.findInput.SetValue("")
 	m.clearSwiper()
 	m.mode = modeDocument
-	m.status = "Opened " + msg.raw.Ref.String()
+	if msg.raw.Ref.IsZero() {
+		m.status = "Opened pager input"
+	} else {
+		m.status = "Opened " + msg.raw.Ref.String()
+	}
 	m.viewport.GotoTop()
 	m.selectedSection = 0
 	m.clearScrollCount()
 	m.rebuildViewportContent()
-	if m.history != nil {
+	if m.history != nil && !msg.raw.Ref.IsZero() {
 		if err := m.history.Add(msg.raw.Ref, m.doc.Title); err != nil {
 			m.status = "Opened " + msg.raw.Ref.String() + "; history unavailable: " + err.Error()
 		}
