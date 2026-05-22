@@ -23,6 +23,31 @@ Or with Nix:
 nix build .#
 ```
 
+## Install with Nix flakes
+
+On NixOS, add `btrman` as a flake input and install the package from your
+system configuration:
+
+```nix
+# flake.nix
+{
+  inputs.btrman.url = "github:Souheab/btrman";
+
+  outputs = { nixpkgs, btrman, ... }: {
+    nixosConfigurations.your-host = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        ({ pkgs, ... }: {
+          environment.systemPackages = [
+            btrman.packages.${pkgs.system}.default
+          ];
+        })
+      ];
+    };
+  };
+}
+```
+
 ## Run
 
 ```sh
